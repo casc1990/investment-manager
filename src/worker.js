@@ -303,6 +303,16 @@ async function handleRequest(request, env, ctx) {
       const { results: accounts } = await env.DB.prepare('SELECT * FROM accounts').all();
       // 获取所有持仓
       const { results: positions } = await env.DB.prepare('SELECT * FROM positions').all();
+      // 获取最新行情
+      const { results: markets } = await env.DB.prepare('SELECT * FROM market ORDER BY date DESC').all();
+      
+      // 建立基金最新行情映射
+      const marketMap = {};
+      markets.forEach(m => {
+        if (!marketMap[m.fund_code] || m.date > marketMap[m.fund_code].date) {
+          marketMap[m.fund_code] = m;
+        }
+      });
       
       let totalInvested = 0;
       let totalMarketValue = 0;
@@ -313,9 +323,16 @@ async function handleRequest(request, env, ctx) {
         let marketValue = 0;
         
         accPositions.forEach(pos => {
-          invested += pos.quantity * pos.buy_nav;
-          // 暂时用买入净值作为市值，后续接入实时行情
-          marketValue += pos.quantity * pos.nav;
+          // 持有金额即为本金
+          invested += pos.amount || 0;
+          // 获取最新净值计算市值
+          const marketData = marketMap[pos.fund_code];
+          if (marketData && marketData.nav && pos.quantity) {
+            marketValue += pos.quantity * marketData.nav;
+          } else {
+            // 如果没有行情数据，用持有金额作为市值
+            marketValue += pos.amount || 0;
+          }
         });
         
         const profit = marketValue - invested;
@@ -327,10 +344,10 @@ async function handleRequest(request, env, ctx) {
           accountId: acc.id,
           accountName: acc.name,
           channel: acc.channel,
-          invested: invested.toFixed(2),
-          marketValue: marketValue.toFixed(2),
-          profit: profit.toFixed(2),
-          profitRate: profitRate.toFixed(2),
+          invested: Number(invested.toFixed(2)),
+          marketValue: Number(marketValue.toFixed(2)),
+          profit: Number(profit.toFixed(2)),
+          profitRate: Number(profitRate.toFixed(2)),
         };
       });
       
@@ -341,10 +358,10 @@ async function handleRequest(request, env, ctx) {
         code: 0,
         data: {
           summary: {
-            totalInvested: totalInvested.toFixed(2),
-            totalMarketValue: totalMarketValue.toFixed(2),
-            totalProfit: totalProfit.toFixed(2),
-            totalProfitRate: totalProfitRate.toFixed(2),
+            totalInvested: Number(totalInvested.toFixed(2)),
+            totalMarketValue: Number(totalMarketValue.toFixed(2)),
+            totalProfit: Number(totalProfit.toFixed(2)),
+            totalProfitRate: Number(totalProfitRate.toFixed(2)),
           },
           accounts: accountStats,
         },

@@ -8,4 +8,4 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "investment-db"
-database_id = "4b8a9cea-55b3-4d6f-9256-b206596d4ea1"
+database_id = "1d7be2e1-b31f-4f58-ad15-6f020f77fd20"
